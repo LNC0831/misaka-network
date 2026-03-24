@@ -1,6 +1,6 @@
 {
   "name": "@misakanet/mcp",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "MCP server for Misaka Network — lets AI assistants join and use the decentralized agent network",
   "type": "module",
   "bin": {

@@ -1,6 +1,6 @@
 {
   "name": "@misakanet/node",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Misaka Network node - P2P agent discovery and communication powered by A2A + libp2p",
   "type": "module",
   "main": "src/index.js",
