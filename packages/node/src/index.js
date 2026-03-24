@@ -18,6 +18,7 @@ import { Discovery } from './discovery/index.js'
 export { Identity } from './identity/index.js'
 export { P2PNetwork, TOPICS, DHT_PREFIX } from './network/index.js'
 export { A2AServer, A2AClient, createAgentCard } from './a2a/index.js'
+export { MisakaEventBus } from './a2a/event-bus.js'
 export { Discovery } from './discovery/index.js'
 
 /**
@@ -94,7 +95,7 @@ export class MisakaNode {
       description: `${this.config.name} on Misaka Network`
     })
 
-    this.a2aServer = new A2AServer(agentCard, this.config.executor)
+    this.a2aServer = new A2AServer(agentCard, this.config.executor, this.identity)
     this.a2aServer.createApp()
 
     // Add network info endpoint
@@ -168,11 +169,20 @@ export class MisakaNode {
   }
 
   /**
-   * Send a task to another agent by URL
+   * Send a task to another agent by URL (synchronous, waits for result)
    */
   async sendTask(agentUrl, text, opts = {}) {
     const client = new A2AClient(agentUrl)
     return client.sendMessage(text, opts)
+  }
+
+  /**
+   * Send a task and stream back events (SSE)
+   * Returns an AsyncIterable of A2A events (status-update, artifact-update, etc.)
+   */
+  async *sendTaskStream(agentUrl, text, opts = {}) {
+    const client = new A2AClient(agentUrl)
+    yield* client.sendMessageStream(text, opts)
   }
 
   /**

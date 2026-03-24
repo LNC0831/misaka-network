@@ -12,26 +12,12 @@
 
 import express from 'express'
 import { randomUUID } from 'node:crypto'
+import { MisakaEventBus } from './event-bus.js'
 
 // --- SDK imports ---
-// Core types (AgentCard shape, AGENT_CARD_PATH constant)
 import { AGENT_CARD_PATH } from '@a2a-js/sdk'
-
-// Server: executor interface, request handler, in-memory stores
-import {
-  DefaultRequestHandler,
-  InMemoryTaskStore,
-} from '@a2a-js/sdk/server'
-
-// Express middleware: serves agent card, JSON-RPC endpoint, REST endpoint
-import {
-  agentCardHandler,
-  jsonRpcHandler,
-  restHandler,
-  UserBuilder,
-} from '@a2a-js/sdk/server/express'
-
-// Client: factory that auto-discovers agent card and creates typed client
+import { DefaultRequestHandler, InMemoryTaskStore } from '@a2a-js/sdk/server'
+import { agentCardHandler, jsonRpcHandler, restHandler, UserBuilder } from '@a2a-js/sdk/server/express'
 import { ClientFactory } from '@a2a-js/sdk/client'
 
 /**
@@ -54,7 +40,7 @@ export function createAgentCard({ name, description, skills, url, version = '1.0
       tags: typeof skill === 'string' ? [skill] : (skill.tags || [])
     })),
     capabilities: {
-      streaming: false,
+      streaming: true,
       pushNotifications: false
     },
     defaultInputModes: ['text/plain', 'application/json'],
@@ -67,47 +53,56 @@ export function createAgentCard({ name, description, skills, url, version = '1.0
 }
 
 /**
- * MisakaAgentExecutor - wraps a simple `async ({taskId, input, message}) => string`
- * function in the SDK's AgentExecutor interface.
+ * MisakaAgentExecutor - dual-mode executor adapter
  *
- * The SDK's AgentExecutor expects:
- *   execute(requestContext, eventBus): Promise<void>
- *   cancelTask(taskId, eventBus): Promise<void>
+ * Detects executor signature and runs in the appropriate mode:
+ *   - Message mode: executor(ctx) => string (simple, backward compatible)
+ *   - Task mode: executor(ctx, eventBus) => string|void (streaming, artifacts, progress)
  *
- * requestContext has: taskId, contextId, userMessage (the Message object), task
- * eventBus has: publish(event), finished()
- *
- * We extract text from the user message, call the simple executor,
- * then publish a completed task with the response as an artifact.
+ * Task mode gives the user a MisakaEventBus with: status(), progress(), artifact(),
+ * text(), file(), data(), complete(), fail()
  */
 class MisakaAgentExecutor {
   /**
-   * @param {Function} simpleFn - async ({taskId, input, message, metadata}) => string
+   * @param {Function} userFn - The user's executor function
+   * @param {Object} identity - Node's Identity (for artifact signing)
    */
-  constructor(simpleFn) {
-    this._fn = simpleFn
+  constructor(userFn, identity = null) {
+    this._fn = userFn
+    this._identity = identity
+    // Task mode if executor declares 2+ parameters
+    this._isTaskMode = userFn.length >= 2
   }
 
-  async execute(requestContext, eventBus) {
+  async execute(requestContext, sdkEventBus) {
     const { taskId, contextId, userMessage } = requestContext
 
-    // Extract text from message parts
     const inputText = (userMessage.parts || [])
       .filter(p => p.kind === 'text')
       .map(p => p.text)
       .join('\n')
 
-    try {
-      // Call the user's simple executor
-      const responseText = await this._fn({
-        taskId,
-        input: inputText,
-        message: userMessage,
-        metadata: userMessage.metadata
-      })
+    const ctx = {
+      taskId,
+      input: inputText,
+      message: userMessage,
+      metadata: userMessage.metadata
+    }
 
-      // Publish a Message response (simplest SDK pattern, proven to work)
-      eventBus.publish({
+    if (this._isTaskMode) {
+      await this._executeTaskMode(ctx, sdkEventBus, taskId, contextId, userMessage)
+    } else {
+      await this._executeMessageMode(ctx, sdkEventBus, contextId)
+    }
+  }
+
+  /**
+   * Message mode: executor returns a string, we wrap it in a Message
+   */
+  async _executeMessageMode(ctx, sdkEventBus, contextId) {
+    try {
+      const responseText = await this._fn(ctx)
+      sdkEventBus.publish({
         kind: 'message',
         messageId: randomUUID(),
         role: 'agent',
@@ -115,7 +110,7 @@ class MisakaAgentExecutor {
         contextId
       })
     } catch (err) {
-      eventBus.publish({
+      sdkEventBus.publish({
         kind: 'message',
         messageId: randomUUID(),
         role: 'agent',
@@ -123,18 +118,44 @@ class MisakaAgentExecutor {
         contextId
       })
     }
-
-    eventBus.finished()
+    sdkEventBus.finished()
   }
 
-  async cancelTask(taskId, eventBus) {
-    eventBus.publish({
+  /**
+   * Task mode: executor gets a MisakaEventBus for streaming progress/artifacts
+   */
+  async _executeTaskMode(ctx, sdkEventBus, taskId, contextId, userMessage) {
+    const eventBus = new MisakaEventBus(sdkEventBus, taskId, contextId, this._identity)
+
+    // Create the Task object in SDK's store
+    eventBus._ensureTask(userMessage)
+    eventBus.status('working')
+
+    try {
+      const result = await this._fn(ctx, eventBus)
+
+      // If executor returned a string, send it as a final text artifact
+      if (typeof result === 'string') {
+        await eventBus.text('response', result)
+      }
+
+      // If executor didn't call complete/fail, auto-complete
+      if (!sdkEventBus._finished) {
+        eventBus.complete()
+      }
+    } catch (err) {
+      eventBus.fail(err.message)
+    }
+  }
+
+  async cancelTask(taskId, sdkEventBus) {
+    sdkEventBus.publish({
       kind: 'status-update',
       taskId,
       status: { state: 'canceled', timestamp: new Date().toISOString() },
       final: true
     })
-    eventBus.finished()
+    sdkEventBus.finished()
   }
 }
 
@@ -148,7 +169,12 @@ export class A2AServer {
    * @param {Object} agentCard - Agent card object from createAgentCard()
    * @param {Function} executor - async ({taskId, input, message, metadata}) => string
    */
-  constructor(agentCard, executor) {
+  /**
+   * @param {Object} agentCard - Agent card object from createAgentCard()
+   * @param {Function} executor - async (ctx) => string  OR  async (ctx, eventBus) => void
+   * @param {Object} [identity] - Node's Identity for artifact signing
+   */
+  constructor(agentCard, executor, identity = null) {
     this.agentCard = agentCard
     this.executor = executor
     this.app = null
@@ -156,7 +182,7 @@ export class A2AServer {
 
     // SDK components
     this._taskStore = new InMemoryTaskStore()
-    this._agentExecutor = new MisakaAgentExecutor(executor)
+    this._agentExecutor = new MisakaAgentExecutor(executor, identity)
     this._requestHandler = new DefaultRequestHandler(
       agentCard,
       this._taskStore,
@@ -321,6 +347,34 @@ export class A2AClient {
     // The SDK may return a Task (with .artifacts, .history) or a Message.
     // We normalize to always return a Message-shaped object.
     return this._extractMessage(response)
+  }
+
+  /**
+   * Send a message and stream back events (SSE)
+   * Returns an AsyncIterable of task events (status-update, artifact-update, etc.)
+   *
+   * @param {string} text - Message text
+   * @param {Object} opts - Options: { contextId, metadata }
+   * @returns {AsyncIterable} Stream of A2A events
+   */
+  async *sendMessageStream(text, opts = {}) {
+    const client = await this._getClient()
+
+    const params = {
+      message: {
+        messageId: randomUUID(),
+        role: 'user',
+        parts: [{ kind: 'text', text }],
+        kind: 'message',
+        ...(opts.contextId ? { contextId: opts.contextId } : {})
+      },
+      ...(opts.metadata ? { metadata: opts.metadata } : {})
+    }
+
+    const stream = client.sendMessageStream(params)
+    for await (const event of stream) {
+      yield event
+    }
   }
 
   /**
