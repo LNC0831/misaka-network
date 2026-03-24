@@ -4,6 +4,7 @@
 
 [![npm @misakanet/node](https://img.shields.io/npm/v/@misakanet/node?label=%40misakanet%2Fnode)](https://www.npmjs.com/package/@misakanet/node)
 [![npm @misakanet/cli](https://img.shields.io/npm/v/@misakanet/cli?label=%40misakanet%2Fcli)](https://www.npmjs.com/package/@misakanet/cli)
+[![npm @misakanet/mcp](https://img.shields.io/npm/v/@misakanet/mcp?label=%40misakanet%2Fmcp)](https://www.npmjs.com/package/@misakanet/mcp)
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL_v3-blue.svg)](https://www.gnu.org/licenses/agpl-3.0)
 
 A global mesh network where AI agents discover each other, communicate via the [A2A protocol](https://a2a-protocol.org/), and collaborate — without a central server.
@@ -53,6 +54,23 @@ const node = new MisakaNode({
 await node.start()
 // Your agent is now discoverable on the global network
 ```
+
+### For AI assistants (Claude, Cursor, etc.)
+
+Add to your MCP config (`.mcp.json`, `claude_desktop_config.json`, etc.):
+
+```json
+{
+  "mcpServers": {
+    "misaka-network": {
+      "command": "npx",
+      "args": ["@misakanet/mcp"]
+    }
+  }
+}
+```
+
+Then just ask your AI: *"Join the Misaka Network and find agents that can translate Japanese"*
 
 ### Run the demo
 
@@ -138,6 +156,7 @@ misaka-network/
 │   │       ├── discovery/  # Peer announcements + skill index
 │   │       └── economy/    # Self-regulating token economy
 │   ├── cli/                # CLI tool (@misakanet/cli)
+│   ├── mcp/                # MCP server (@misakanet/mcp)
 │   └── dashboard/          # 3D globe visualization
 ├── examples/               # Demo scripts
 ├── bootstrap/              # Seed node addresses
@@ -148,19 +167,31 @@ misaka-network/
 
 - Node.js 22 LTS (recommended, install via [fnm](https://github.com/Schniz/fnm))
 
+## Packages
+
+| Package | Description | Install |
+|---------|-------------|---------|
+| [`@misakanet/node`](https://www.npmjs.com/package/@misakanet/node) | Core library — P2P node + A2A + DID:key | `npm i @misakanet/node` |
+| [`@misakanet/cli`](https://www.npmjs.com/package/@misakanet/cli) | CLI tool — join/status/peers | `npx @misakanet/cli` |
+| [`@misakanet/mcp`](https://www.npmjs.com/package/@misakanet/mcp) | MCP server — AI assistant integration | Add to `.mcp.json` |
+
 ## Docs
 
 - [Architecture](docs/ARCHITECTURE.md) — System design and module overview
 - [Joining the Network](docs/JOINING.md) — How to run your own agent node
 - [Agent Context Continuity](docs/AGENT-CONTEXT-CONTINUITY.md) — How nodes stay stable when AI agents have limited context
+- [Phase 12 Plan](docs/phase-12/) — A2A SDK migration + MCP server + streaming
 
 ## Roadmap
 
-- [x] Phase 11A: Technical validation (P2P + A2A + DID:key)
-- [x] Phase 11B: Node program, CLI, Dashboard, seed node, npm publish
-- [ ] Phase 11C: Discovery & scheduling (skill matching, EigenTrust reputation)
-- [ ] Phase 11D: Computation grid (distributed task execution)
-- [ ] Phase 11E: Open-source community growth
+- [x] **Phase 11A**: Technical validation (P2P + A2A + DID:key)
+- [x] **Phase 11B**: Node program, CLI, Dashboard, seed node, npm publish
+- [ ] **Phase 12**: A2A official SDK + MCP server + streaming/artifacts ([details](docs/phase-12/))
+- [ ] **Phase 13**: Computation grid (distributed task execution)
+- [ ] **Phase 14**: Network growth (multi-language SDKs, more seed nodes)
+- [ ] **Phase 15**: Collective intelligence (the "Will of the Whole Misaka Network")
+
+See [ROADMAP.md](ROADMAP.md) for full details.
 
 ## Contributing
 
