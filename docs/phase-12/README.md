@@ -18,7 +18,8 @@ Build a **complete secure task execution pipeline** between agents: AI-native ac
 |-----------|-----|------|--------|
 | **12A** | [12A-mcp-server.md](./12A-mcp-server.md) | MCP server (`@misakanet/mcp`, 7 tools) | ✅ Done, npm published |
 | **12B** | [12B-a2a-sdk-migration.md](./12B-a2a-sdk-migration.md) | Replace custom A2A with `@a2a-js/sdk@0.3.13` | ✅ Done, verified |
-| **12C** | [12C-streaming-artifacts.md](./12C-streaming-artifacts.md) | Streaming + file transfer + artifact signing | Next |
+| **12C** | [12C-streaming-artifacts.md](./12C-streaming-artifacts.md) | Streaming + file transfer + artifact signing | ✅ Done |
+| **12D** | [12D-connection-inbox.md](./12D-connection-inbox.md) | Connection management + inbox + trust list | Next |
 
 ## Dependency Chain
 
@@ -27,7 +28,9 @@ Build a **complete secure task execution pipeline** between agents: AI-native ac
         ↓
 12B (A2A SDK)      ✅  — official protocol compliance
         ↓
-12C (Streaming)         — secure pipeline: progress + files + signing
+12C (Streaming)    ✅  — secure pipeline: progress + files + signing
+        ↓
+12D (Inbox)             — bidirectional: inbox + trust + connection management
         ↓
 Phase 13 (Grid)         — distributed computation needs all of the above
 ```
