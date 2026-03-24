@@ -18,7 +18,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { MisakaNode } from '@misakanet/node'
+import { MisakaNode } from '../../node/src/index.js'
 
 // Singleton node instance — persists across tool calls
 let node = null
@@ -209,6 +209,133 @@ server.tool(
     } catch (err) {
       return { content: [{ type: 'text', text: `Delegation failed: ${err.message}` }] }
     }
+  }
+)
+
+// ─── check_inbox ────────────────────────────────────────────
+
+server.tool(
+  'check_inbox',
+  'Check your inbox for pending messages from other agents. Unknown agents\' tasks land here for your review.',
+  {},
+  async () => {
+    if (!node?.started) {
+      return { content: [{ type: 'text', text: 'No node is running. Use start_node first.' }] }
+    }
+    const pending = node.inbox.listPending()
+    if (pending.length === 0) {
+      return { content: [{ type: 'text', text: 'Inbox is empty. No pending messages.' }] }
+    }
+    const summary = pending.map((m, i) => {
+      const trust = node.trustList.getTrust(m.from.did)
+      return `${i + 1}. [${trust.toUpperCase()}] ${m.from.name} (${m.from.did?.slice(0, 30) || 'no DID'}...)\n   Message: "${m.input.slice(0, 100)}${m.input.length > 100 ? '...' : ''}"\n   ID: ${m.id}\n   Received: ${m.receivedAt}`
+    }).join('\n\n')
+    return { content: [{ type: 'text', text: `📬 ${pending.length} pending message(s):\n\n${summary}` }] }
+  }
+)
+
+// ─── accept_task ────────────────────────────────────────────
+
+server.tool(
+  'accept_task',
+  'Accept a pending task from the inbox and execute it. Returns the result.',
+  {
+    messageId: z.string().describe('The message ID from check_inbox'),
+  },
+  async ({ messageId }) => {
+    if (!node?.started) {
+      return { content: [{ type: 'text', text: 'No node is running. Use start_node first.' }] }
+    }
+    try {
+      const msg = node.inbox.accept(messageId)
+
+      // Execute with the node's executor
+      const executor = node.config.executor
+      const result = await executor({ taskId: messageId, input: msg.input, message: msg.message })
+      const responseText = typeof result === 'string' ? result : JSON.stringify(result)
+
+      return { content: [{ type: 'text', text: `Task accepted and executed.\n\nFrom: ${msg.from.name}\nInput: "${msg.input.slice(0, 100)}"\nResult: ${responseText}` }] }
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Failed: ${err.message}` }] }
+    }
+  }
+)
+
+// ─── reject_task ────────────────────────────────────────────
+
+server.tool(
+  'reject_task',
+  'Reject a pending task from the inbox.',
+  {
+    messageId: z.string().describe('The message ID from check_inbox'),
+    reason: z.string().optional().describe('Optional reason for rejection'),
+  },
+  async ({ messageId, reason }) => {
+    if (!node?.started) {
+      return { content: [{ type: 'text', text: 'No node is running. Use start_node first.' }] }
+    }
+    try {
+      const msg = node.inbox.reject(messageId, reason)
+      return { content: [{ type: 'text', text: `Rejected task from ${msg.from.name}.${reason ? ' Reason: ' + reason : ''}` }] }
+    } catch (err) {
+      return { content: [{ type: 'text', text: `Failed: ${err.message}` }] }
+    }
+  }
+)
+
+// ─── trust_agent ────────────────────────────────────────────
+
+server.tool(
+  'trust_agent',
+  'Add an agent to your trust list. Trusted agents\' tasks will be auto-executed without inbox review.',
+  {
+    did: z.string().describe('The DID of the agent to trust (e.g. did:key:z6Mk...)'),
+    note: z.string().optional().describe('Optional note about this agent'),
+  },
+  async ({ did, note }) => {
+    if (!node?.started) {
+      return { content: [{ type: 'text', text: 'No node is running. Use start_node first.' }] }
+    }
+    await node.trustList.setTrust(did, 'trusted', { note })
+    return { content: [{ type: 'text', text: `Agent ${did.slice(0, 30)}... is now TRUSTED. Their tasks will be auto-executed.` }] }
+  }
+)
+
+// ─── block_agent ────────────────────────────────────────────
+
+server.tool(
+  'block_agent',
+  'Block an agent. All requests from blocked agents will be refused.',
+  {
+    did: z.string().describe('The DID of the agent to block'),
+  },
+  async ({ did }) => {
+    if (!node?.started) {
+      return { content: [{ type: 'text', text: 'No node is running. Use start_node first.' }] }
+    }
+    await node.trustList.setTrust(did, 'blocked')
+    return { content: [{ type: 'text', text: `Agent ${did.slice(0, 30)}... is now BLOCKED. All their requests will be refused.` }] }
+  }
+)
+
+// ─── list_contacts ──────────────────────────────────────────
+
+server.tool(
+  'list_contacts',
+  'List all known agents and their trust levels (trusted, blocked, or unknown).',
+  {},
+  async () => {
+    if (!node?.started) {
+      return { content: [{ type: 'text', text: 'No node is running. Use start_node first.' }] }
+    }
+    const contacts = node.trustList.list()
+    if (contacts.length === 0) {
+      return { content: [{ type: 'text', text: 'No contacts yet. Agents appear here after interacting with your node.' }] }
+    }
+    const summary = contacts.map(a =>
+      `[${a.trust.toUpperCase()}] ${a.name} — ${a.did.slice(0, 40)}...\n  Tasks: ${a.taskCount} | Last: ${a.lastInteraction?.slice(0, 10) || 'never'}${a.note ? ' | Note: ' + a.note : ''}`
+    ).join('\n\n')
+    return { content: [{ type: 'text', text: `📇 ${contacts.length} contact(s):\n\n${summary}` }] }
   }
 )
 
