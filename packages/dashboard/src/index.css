@@ -1,0 +1,27 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  margin: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Pulse animation for online nodes */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 4px 2px rgba(34, 197, 94, 0.4); }
+  50% { box-shadow: 0 0 8px 4px rgba(34, 197, 94, 0.7); }
+}
+
+.node-pulse {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* World map grid lines */
+.map-grid {
+  background-image:
+    linear-gradient(rgba(100, 116, 139, 0.1) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(100, 116, 139, 0.1) 1px, transparent 1px);
+  background-size: 40px 40px;
+}

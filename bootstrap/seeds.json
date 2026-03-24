@@ -1,0 +1,10 @@
+{
+  "description": "Misaka Network bootstrap seed nodes",
+  "seeds": [
+    {
+      "name": "Last-Order",
+      "location": "Singapore",
+      "multiaddr": "/ip4/43.134.38.100/tcp/9000/p2p/12D3KooWKFgkpTk9KbPesJdkyUyheXTzN46opmww6xyDj675MCtV"
+    }
+  ]
+}

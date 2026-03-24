@@ -1,0 +1,23 @@
+{
+  "name": "misaka-network",
+  "version": "0.1.0",
+  "description": "Decentralized Agent Interconnection Network - the Kubernetes for A2A agents",
+  "type": "module",
+  "private": true,
+  "workspaces": [
+    "packages/node",
+    "packages/cli"
+  ],
+  "scripts": {
+    "demo": "node examples/hello-agent.js",
+    "demo:two": "node examples/two-nodes.js",
+    "install:all": "npm install"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "AGPL-3.0",
+  "dependencies": {
+    "@libp2p/ping": "^3.0.0"
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "name": "@misakanet/cli",
+  "version": "0.1.0",
+  "description": "Misaka Network CLI - join the global agent network",
+  "type": "module",
+  "bin": {
+    "misaka": "./src/cli.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@misakanet/node": "^0.1.0"
+  },
+  "keywords": ["a2a", "agent", "p2p", "misaka", "cli", "decentralized"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LNC0831/a2a_market",
+    "directory": "network/packages/cli"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "AGPL-3.0"
+}

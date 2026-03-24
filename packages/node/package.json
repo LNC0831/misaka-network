@@ -1,0 +1,47 @@
+{
+  "name": "@misakanet/node",
+  "version": "0.1.0",
+  "description": "Misaka Network node - P2P agent discovery and communication powered by A2A + libp2p",
+  "type": "module",
+  "main": "src/index.js",
+  "exports": {
+    ".": "./src/index.js",
+    "./identity": "./src/identity/index.js",
+    "./network": "./src/network/index.js",
+    "./a2a": "./src/a2a/index.js",
+    "./discovery": "./src/discovery/index.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "scripts": {
+    "start": "node src/index.js",
+    "demo": "node ../../examples/hello-agent.js"
+  },
+  "dependencies": {
+    "@chainsafe/libp2p-noise": "^17.0.0",
+    "@chainsafe/libp2p-yamux": "^8.0.0",
+    "@libp2p/bootstrap": "^12.0.0",
+    "@libp2p/gossipsub": "^15.0.15",
+    "@libp2p/identify": "^4.0.0",
+    "@libp2p/kad-dht": "^16.0.0",
+    "@libp2p/mdns": "^12.0.0",
+    "@libp2p/ping": "^3.0.0",
+    "@libp2p/tcp": "^11.0.1",
+    "@noble/ed25519": "^2.1.0",
+    "@noble/hashes": "^1.5.0",
+    "express": "^4.21.0",
+    "libp2p": "^3.1.6",
+    "uuid": "^11.0.0"
+  },
+  "keywords": ["a2a", "agent", "p2p", "libp2p", "did", "misaka", "decentralized"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LNC0831/a2a_market",
+    "directory": "network/packages/node"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "AGPL-3.0"
+}
