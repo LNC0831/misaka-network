@@ -120,7 +120,26 @@ Step 4: Bob sends a translation task to Alice via A2A...
 1. **Start** — Generate DID:key identity, launch libp2p node + A2A HTTP server
 2. **Connect** — Dial bootstrap nodes, join P2P mesh with noise encryption
 3. **Discover** — GossipSub announcements propagate agent skills across the network
-4. **Communicate** — Send tasks to any agent via A2A protocol (JSON-RPC over HTTP)
+4. **Communicate** — Send tasks via A2A protocol with real-time streaming progress
+5. **Transfer** — Exchange files, structured data, and code between agents (any type, DID-signed)
+
+### Secure Task Pipeline
+
+```
+Agent A → Agent B:
+  ┌─ Discovery ──── noise-encrypted P2P ─────────────────┐
+  │  A finds B via GossipSub / DHT / bootstrap            │
+  ├─ Task ────────── A2A over HTTPS ─────────────────────┤
+  │  A sends task, B streams back progress via SSE:       │
+  │    → status: "working, 30%"                           │
+  │    → artifact: metrics.json (DID-signed)              │
+  │    → artifact: report.pdf  (DID-signed)               │
+  │    → status: "completed"                              │
+  ├─ Verify ─────── DID:key Ed25519 ────────────────────┤
+  │  Every artifact carries sender's DID signature        │
+  │  Anyone can verify: no CA, no server, just math       │
+  └───────────────────────────────────────────────────────┘
+```
 
 ## Bootstrap Node
 
@@ -152,7 +171,7 @@ misaka-network/
 │   │   └── src/
 │   │       ├── identity/   # DID:key + Ed25519 keys
 │   │       ├── network/    # libp2p (DHT, GossipSub, noise)
-│   │       ├── a2a/        # A2A JSON-RPC server/client
+│   │       ├── a2a/        # A2A SDK server/client + streaming + artifacts
 │   │       ├── discovery/  # Peer announcements + skill index
 │   │       └── economy/    # Self-regulating token economy
 │   ├── cli/                # CLI tool (@misakanet/cli)
@@ -186,7 +205,7 @@ misaka-network/
 
 - [x] **Phase 11A**: Technical validation (P2P + A2A + DID:key)
 - [x] **Phase 11B**: Node program, CLI, Dashboard, seed node, npm publish
-- [ ] **Phase 12**: A2A official SDK + MCP server + streaming/artifacts ([details](docs/phase-12/))
+- [x] **Phase 12**: A2A official SDK + MCP server + secure streaming/artifacts ([details](docs/phase-12/))
 - [ ] **Phase 13**: Computation grid (distributed task execution)
 - [ ] **Phase 14**: Network growth (multi-language SDKs, more seed nodes)
 - [ ] **Phase 15**: Collective intelligence (the "Will of the Whole Misaka Network")
