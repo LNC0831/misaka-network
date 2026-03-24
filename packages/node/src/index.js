@@ -19,6 +19,8 @@ export { Identity } from './identity/index.js'
 export { P2PNetwork, TOPICS, DHT_PREFIX } from './network/index.js'
 export { A2AServer, A2AClient, createAgentCard } from './a2a/index.js'
 export { MisakaEventBus } from './a2a/event-bus.js'
+export { TrustList, TRUST_LEVEL } from './a2a/trust-list.js'
+export { Inbox } from './a2a/inbox.js'
 export { Discovery } from './discovery/index.js'
 
 /**
@@ -95,7 +97,17 @@ export class MisakaNode {
       description: `${this.config.name} on Misaka Network`
     })
 
-    this.a2aServer = new A2AServer(agentCard, this.config.executor, this.identity)
+    // Initialize trust list (load from disk)
+    const { TrustList } = await import('./a2a/trust-list.js')
+    const { Inbox } = await import('./a2a/inbox.js')
+    this.trustList = new TrustList()
+    this.inbox = new Inbox()
+    await this.trustList.load()
+
+    this.a2aServer = new A2AServer(agentCard, this.config.executor, this.identity, {
+      trustList: this.trustList,
+      inbox: this.inbox
+    })
     this.a2aServer.createApp()
 
     // Add network info endpoint
@@ -172,7 +184,7 @@ export class MisakaNode {
    * Send a task to another agent by URL (synchronous, waits for result)
    */
   async sendTask(agentUrl, text, opts = {}) {
-    const client = new A2AClient(agentUrl)
+    const client = new A2AClient(agentUrl, this.identity)
     return client.sendMessage(text, opts)
   }
 
@@ -181,7 +193,7 @@ export class MisakaNode {
    * Returns an AsyncIterable of A2A events (status-update, artifact-update, etc.)
    */
   async *sendTaskStream(agentUrl, text, opts = {}) {
-    const client = new A2AClient(agentUrl)
+    const client = new A2AClient(agentUrl, this.identity)
     yield* client.sendMessageStream(text, opts)
   }
 

@@ -13,6 +13,8 @@
 import express from 'express'
 import { randomUUID } from 'node:crypto'
 import { MisakaEventBus } from './event-bus.js'
+import { TrustList, TRUST_LEVEL } from './trust-list.js'
+import { Inbox } from './inbox.js'
 
 // --- SDK imports ---
 import { AGENT_CARD_PATH } from '@a2a-js/sdk'
@@ -65,17 +67,32 @@ export function createAgentCard({ name, description, skills, url, version = '1.0
 class MisakaAgentExecutor {
   /**
    * @param {Function} userFn - The user's executor function
-   * @param {Object} identity - Node's Identity (for artifact signing)
+   * @param {Object} opts - { identity, trustList, inbox }
    */
-  constructor(userFn, identity = null) {
+  constructor(userFn, opts = {}) {
     this._fn = userFn
-    this._identity = identity
+    this._identity = opts.identity || null
+    this._trustList = opts.trustList || null
+    this._inbox = opts.inbox || null
     // Task mode if executor declares 2+ parameters
     this._isTaskMode = userFn.length >= 2
   }
 
+  /**
+   * Extract sender DID from message metadata (Misaka convention)
+   */
+  _extractSender(userMessage) {
+    const meta = userMessage.metadata || {}
+    return {
+      did: meta['misaka:sender-did'] || null,
+      name: meta['misaka:sender-name'] || 'Unknown',
+      agentId: meta['misaka:sender-agent-id'] || null
+    }
+  }
+
   async execute(requestContext, sdkEventBus) {
     const { taskId, contextId, userMessage } = requestContext
+    const sender = this._extractSender(userMessage)
 
     const inputText = (userMessage.parts || [])
       .filter(p => p.kind === 'text')
@@ -86,9 +103,40 @@ class MisakaAgentExecutor {
       taskId,
       input: inputText,
       message: userMessage,
-      metadata: userMessage.metadata
+      metadata: userMessage.metadata,
+      sender
     }
 
+    // --- Trust-based routing ---
+    if (this._trustList && this._inbox && sender.did) {
+      const trust = this._trustList.getTrust(sender.did)
+
+      if (trust === TRUST_LEVEL.BLOCKED) {
+        sdkEventBus.publish({
+          kind: 'message', messageId: randomUUID(), role: 'agent',
+          parts: [{ kind: 'text', text: 'Connection refused.' }], contextId
+        })
+        sdkEventBus.finished()
+        return
+      }
+
+      if (trust === TRUST_LEVEL.UNKNOWN) {
+        // Queue in inbox, return "pending review"
+        const msgId = this._inbox.add({ from: sender, input: inputText, message: userMessage })
+        sdkEventBus.publish({
+          kind: 'message', messageId: randomUUID(), role: 'agent',
+          parts: [{ kind: 'text', text: `Task received (ref: ${msgId}). Pending review by the node operator.` }],
+          contextId
+        })
+        sdkEventBus.finished()
+        return
+      }
+
+      // TRUSTED — record interaction and fall through to execute
+      this._trustList.recordInteraction(sender.did, sender.name).catch(() => {})
+    }
+
+    // --- Execute (trusted or no trust system configured) ---
     if (this._isTaskMode) {
       await this._executeTaskMode(ctx, sdkEventBus, taskId, contextId, userMessage)
     } else {
@@ -173,16 +221,23 @@ export class A2AServer {
    * @param {Object} agentCard - Agent card object from createAgentCard()
    * @param {Function} executor - async (ctx) => string  OR  async (ctx, eventBus) => void
    * @param {Object} [identity] - Node's Identity for artifact signing
+   * @param {Object} [opts] - { trustList, inbox }
    */
-  constructor(agentCard, executor, identity = null) {
+  constructor(agentCard, executor, identity = null, opts = {}) {
     this.agentCard = agentCard
     this.executor = executor
+    this.trustList = opts.trustList || new TrustList()
+    this.inbox = opts.inbox || new Inbox()
     this.app = null
     this.server = null
 
     // SDK components
     this._taskStore = new InMemoryTaskStore()
-    this._agentExecutor = new MisakaAgentExecutor(executor, identity)
+    this._agentExecutor = new MisakaAgentExecutor(executor, {
+      identity,
+      trustList: this.trustList,
+      inbox: this.inbox
+    })
     this._requestHandler = new DefaultRequestHandler(
       agentCard,
       this._taskStore,
@@ -289,11 +344,13 @@ export class A2AServer {
 export class A2AClient {
   /**
    * @param {string} agentUrl - Base URL of the remote agent (e.g., http://localhost:4000)
+   * @param {Object} [senderIdentity] - Local identity to attach as metadata (for trust verification)
    */
-  constructor(agentUrl) {
+  constructor(agentUrl, senderIdentity = null) {
     this.agentUrl = agentUrl.replace(/\/$/, '')
     this._factory = new ClientFactory()
-    this._client = null // lazily initialized
+    this._client = null
+    this._senderIdentity = senderIdentity
   }
 
   /**
@@ -330,15 +387,23 @@ export class A2AClient {
   async sendMessage(text, opts = {}) {
     const client = await this._getClient()
 
+    // Auto-attach sender DID for trust verification
+    const senderMeta = {}
+    if (this._senderIdentity) {
+      senderMeta['misaka:sender-did'] = this._senderIdentity.did
+      senderMeta['misaka:sender-name'] = this._senderIdentity.name
+      senderMeta['misaka:sender-agent-id'] = this._senderIdentity.agentId
+    }
+
     const params = {
       message: {
         messageId: randomUUID(),
         role: 'user',
         parts: [{ kind: 'text', text }],
         kind: 'message',
+        metadata: { ...senderMeta, ...(opts.metadata || {}) },
         ...(opts.contextId ? { contextId: opts.contextId } : {})
-      },
-      ...(opts.metadata ? { metadata: opts.metadata } : {})
+      }
     }
 
     const response = await client.sendMessage(params)
