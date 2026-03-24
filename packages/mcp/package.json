@@ -1,0 +1,27 @@
+{
+  "name": "@misakanet/mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Misaka Network — lets AI assistants join and use the decentralized agent network",
+  "type": "module",
+  "bin": {
+    "misakanet-mcp": "./bin/mcp-server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.27.0",
+    "@misakanet/node": "^0.1.0",
+    "zod": "^3.25.0"
+  },
+  "keywords": ["mcp", "a2a", "agent", "p2p", "misaka", "decentralized", "ai-tools"],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/LNC0831/misaka-network",
+    "directory": "packages/mcp"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
+  "license": "AGPL-3.0"
+}
