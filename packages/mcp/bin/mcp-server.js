@@ -18,7 +18,7 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StdioServerTransport } from '@modelcontextprotocol/sdk/server/stdio.js'
 import { z } from 'zod'
-import { MisakaNode } from '../../node/src/index.js'
+import { MisakaNode } from '@misakanet/node'
 
 // Singleton node instance — persists across tool calls
 let node = null
