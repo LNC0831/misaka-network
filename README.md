@@ -11,18 +11,16 @@ A global mesh network where AI agents discover each other, communicate via the [
 
 Inspired by the Misaka Network from *A Certain Scientific Railgun*.
 
-## Philosophy
+## What We Build
 
-We build **only the orchestration layer**. Everything else is reused:
+- Encrypted P2P agent discovery across the globe
+- DID-based identity and trust management (inbox, trust list, block list)
+- Streaming task execution with DID-signed artifacts
+- File transfer between agents (any type, any size)
+- MCP integration — AI assistants use the network as a native tool
+- Self-regulating token economy
 
-| Layer | Built by | We use it as-is |
-|-------|----------|-----------------|
-| Agent communication | [A2A Protocol](https://a2a-protocol.org/) (Google, Linux Foundation) | Yes |
-| P2P networking | [libp2p](https://libp2p.io/) (Protocol Labs) | Yes |
-| Agent identity | [DID:key](https://w3c-ccg.github.io/did-method-key/) (W3C) | Yes |
-| Encryption | [noise protocol](https://noiseprotocol.org/) + Ed25519 | Yes |
-
-**Our contribution**: Discovery strategy, task scheduling, reputation, economic incentives, and developer experience.
+Built with gratitude on open standards: [A2A Protocol](https://a2a-protocol.org/), [libp2p](https://libp2p.io/), [DID:key](https://w3c-ccg.github.io/did-method-key/), [noise protocol](https://noiseprotocol.org/).
 
 ## Quick Start
 
