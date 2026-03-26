@@ -145,7 +145,7 @@ The network has a seed node running in Singapore:
 
 ```
 Name: Last-Order
-Address: /ip4/43.134.38.100/tcp/9000/p2p/12D3KooWKFgkpTk9KbPesJdkyUyheXTzN46opmww6xyDj675MCtV
+Address: /ip4/124.156.194.108/tcp/9000/p2p/12D3KooWHFnUc76oXCToP8qjMxX9tt9q7ieHuuAh73FXHrLqS7vq
 ```
 
 New nodes auto-connect via `bootstrap/seeds.json`.
